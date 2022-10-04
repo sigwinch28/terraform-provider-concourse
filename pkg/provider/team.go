@@ -143,7 +143,7 @@ func resourceTeam() *schema.Resource {
 		SchemaVersion: 1,
 		StateUpgraders: []schema.StateUpgrader{
 			{
-				Type: resourceTeamResourceV0().CoreConfigSchema().ImpliedType(),
+				Type:    resourceTeamResourceV0().CoreConfigSchema().ImpliedType(),
 				Upgrade: resourceTeamStateUpgradeV0,
 				Version: 0,
 			},
@@ -249,6 +249,7 @@ func dataTeamRead(ctx context.Context, d *schema.ResourceData, m interface{}) di
 }
 
 func resourceTeamCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	d.SetId(d.Get("team_name").(string))
 	return resourceTeamCreateUpdate(ctx, d, m, true)
 }
 
@@ -258,7 +259,7 @@ func resourceTeamUpdate(ctx context.Context, d *schema.ResourceData, m interface
 
 func resourceTeamRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*ProviderConfig).Client
-	teamName := d.Get("team_name").(string)
+	teamName := d.Id()
 
 	team, err := readTeam(ctx, client, teamName)
 
@@ -267,6 +268,7 @@ func resourceTeamRead(ctx context.Context, d *schema.ResourceData, m interface{}
 	}
 
 	d.SetId(teamName)
+	d.Set("team_name", team.TeamName)
 	d.Set("owners", schema.NewSet(schema.HashString, team.Owners))
 	d.Set("members", schema.NewSet(schema.HashString, team.Members))
 	d.Set("pipeline_operators", schema.NewSet(schema.HashString, team.PipelineOperators))
@@ -276,7 +278,7 @@ func resourceTeamRead(ctx context.Context, d *schema.ResourceData, m interface{}
 
 func resourceTeamCreateUpdate(ctx context.Context, d *schema.ResourceData, m interface{}, create bool) diag.Diagnostics {
 	client := m.(*ProviderConfig).Client
-	teamName := d.Get("team_name").(string)
+	teamName := d.Id()
 	auths := make(map[string][]string)
 
 	var authline []string
@@ -339,12 +341,13 @@ func resourceTeamCreateUpdate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.Errorf("Could not create or update team %s", teamName)
 	}
 
+	d.SetId(teamName)
 	return resourceTeamRead(ctx, d, m)
 }
 
 func resourceTeamDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*ProviderConfig).Client
-	teamName := d.Get("team_name").(string)
+	teamName := d.Id()
 
 	if teamName == "main" {
 		return diag.Errorf("Cannot delete main team")
