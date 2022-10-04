@@ -126,6 +126,10 @@ type pipelineHelper struct {
 	ConfigVersion string
 }
 
+func (p pipelineHelper) pipelineId() string {
+	return pipelineID(p.TeamName, p.PipelineName)
+}
+
 func pipelineID(teamName string, pipelineName string) string {
 	return fmt.Sprintf("%s:%s", teamName, pipelineName)
 }
@@ -242,8 +246,11 @@ func resourcePipelineCreate(ctx context.Context, d *schema.ResourceData, m inter
 
 func resourcePipelineRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*ProviderConfig).Client
-	pipelineName := d.Get("pipeline_name").(string)
-	teamName := d.Get("team_name").(string)
+
+	teamName, pipelineName, err := parsePipelineID(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	pipeline, wasFound, err := readPipeline(ctx, client, teamName, pipelineName)
 
@@ -255,7 +262,9 @@ func resourcePipelineRead(ctx context.Context, d *schema.ResourceData, m interfa
 	}
 
 	if wasFound {
-		d.SetId(pipelineID(teamName, pipelineName))
+		d.SetId(pipeline.pipelineId())
+		d.Set("pipeline_name", pipeline.PipelineName)
+		d.Set("team_name", pipeline.TeamName)
 		d.Set("is_exposed", pipeline.IsExposed)
 		d.Set("is_paused", pipeline.IsPaused)
 		d.Set("json", pipeline.JSON)
